@@ -15,6 +15,7 @@ from reportlab.pdfgen import canvas
 # Configure OpenAI client; API key is expected in the OPENAI_API_KEY environment variable.
 client = OpenAI()
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+IS_DEV = os.getenv("COGNIRAE_DEV", "0") == "1"
 
 
 def difficulty_intensity(d: int) -> float:
@@ -736,8 +737,11 @@ with st.sidebar:
         "I confirm I am not pasting a live quiz or homework question.",
         help="We must take these measures to prevent cheating on assignments.",
     )
-    dev_debug = st.checkbox("Dev: show debug selection", value=st.session_state.get("dev_debug", False))
-    st.session_state.dev_debug = dev_debug
+    if IS_DEV:
+        dev_debug = st.checkbox("Dev: show debug selection", value=st.session_state.get("dev_debug", False))
+        st.session_state.dev_debug = dev_debug
+    else:
+        st.session_state.dev_debug = False
 
 # Non-typable dropdown via custom HTML <select>; typing is blocked via JS keydown preventDefault.
 OPTIONS = [
@@ -884,7 +888,7 @@ with left_col:
 # Resolve selected format immediately after UI controls
 selected_format = selected_format_from_ui(fmt_label if isinstance(fmt_label, str) else None)
 st.session_state.selected_format = selected_format
-if st.session_state.dev_debug:
+if IS_DEV and st.session_state.dev_debug:
     st.write("DEBUG selected_label:", fmt_label)
     st.write("DEBUG selected_format:", selected_format)
 
