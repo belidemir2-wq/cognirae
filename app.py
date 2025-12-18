@@ -16,6 +16,7 @@ from reportlab.pdfgen import canvas
 client = OpenAI()
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 IS_DEV = os.getenv("COGNIRAE_DEV", "0") == "1"
+ANSWER_ALLOWED_FORMATS = {"MCQ", "SAQ"}
 
 
 def difficulty_intensity(d: int) -> float:
@@ -581,6 +582,14 @@ def render_questions(data: Dict[str, Any], show_answers: bool, selected_format: 
         st.error("Format mismatch between selection and response; output suppressed.")
         return
 
+    def render_leq_frq_guidance(fmt: str) -> None:
+        st.info("Answer generation is disabled for LEQ/FRQ to save credits. Use this rubric-style checklist:")
+        st.markdown("**Thesis:** Takes a clear position; addresses the prompt directly.")
+        st.markdown("**Evidence:** Multiple specific, relevant examples; tie each back to the claim.")
+        st.markdown("**Reasoning:** Explain how evidence supports the claim; avoid mere lists.")
+        st.markdown("**Complexity / Counterargument:** Acknowledge limits or counterpoints and respond briefly.")
+        st.markdown("**Planning outline:**\n- Claim/thesis\n- 2-3 evidence points + link-back sentences\n- Brief counter/limit and response\n- Closing sentence tying back to prompt")
+
     items: List[Dict[str, Any]] = data.get("items", []) if isinstance(data, dict) else []
     for idx, q in enumerate(items, start=1):
         st.markdown(f"### Question {idx}")
@@ -617,6 +626,10 @@ def render_questions(data: Dict[str, Any], show_answers: bool, selected_format: 
                     st.markdown(f"**Rubric:** {q.get('rubric', '')}")
                 if "thesis_guidance" in q:
                     st.markdown(f"**Thesis guidance:** {q.get('thesis_guidance', '')}")
+
+    # For LEQ/FRQ, always surface rubric-style guidance instead of answers.
+    if canonical not in ANSWER_ALLOWED_FORMATS:
+        render_leq_frq_guidance(canonical)
 
 
 def render_safe_support(data: Dict[str, Any]) -> None:
@@ -918,7 +931,12 @@ with right_col:
     st.markdown('<div class="c-section-title">Results</div>', unsafe_allow_html=True)
     st.markdown('<div class="c-helper">Use the toolbar to manage output.</div>', unsafe_allow_html=True)
 
-    can_reveal = st.session_state.questions_generated and not st.session_state.answers_revealed and st.session_state.data is not None
+    can_reveal = (
+        st.session_state.questions_generated
+        and not st.session_state.answers_revealed
+        and st.session_state.data is not None
+        and normalize_format(selected_format) in ANSWER_ALLOWED_FORMATS
+    )
     can_regen = st.session_state.questions_generated
     can_actions = st.session_state.questions_generated
 
@@ -1115,13 +1133,19 @@ if generate or regenerate:
                 st.session_state.answers_revealed = False
 
 if reveal and st.session_state.data is not None and not st.session_state.answers_revealed:
-    # Reveal answers once per generation
-    st.session_state.show_answers = True
-    st.session_state.answers_revealed = True
-    st.rerun()
+    canonical = normalize_format(st.session_state.selected_format)
+    if canonical not in ANSWER_ALLOWED_FORMATS:
+        st.info("Answer generation is disabled for LEQ/FRQ to save credits. Review the rubric guidance below.")
+    else:
+        # Reveal answers once per generation for allowed formats
+        st.session_state.show_answers = True
+        st.session_state.answers_revealed = True
+        st.rerun()
 
 if st.session_state.data:
-    render_questions(st.session_state.data, st.session_state.show_answers, st.session_state.selected_format)
+    canonical = normalize_format(st.session_state.selected_format)
+    show_ans = st.session_state.show_answers if canonical in ANSWER_ALLOWED_FORMATS else False
+    render_questions(st.session_state.data, show_ans, st.session_state.selected_format)
 
 # Status indicator, based solely on session flags, after all button/state updates.
 status_parts = []
