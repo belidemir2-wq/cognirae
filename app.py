@@ -659,6 +659,68 @@ def render_safe_support(data: Dict[str, Any]) -> None:
             st.markdown(f"Hint {step_idx}: {hint}")
 
 
+def render_secret_bot() -> None:
+    """Simple 4-turn scripted chat with two-choice branches, no API calls."""
+    stage = st.session_state.secret_bot_stage
+    answers = st.session_state.secret_bot_answers
+
+    def ask(question: str, options: List[str], stage_key: str):
+        choice = st.radio(question, options, key=stage_key)
+        if st.button("Next", key=f"next_{stage_key}"):
+            st.session_state.secret_bot_answers.append(choice)
+            st.session_state.secret_bot_stage += 1
+            st.experimental_rerun()
+
+    st.markdown("### SarahBot 🤖")
+
+    if stage == 0:
+        ask("Hello there my little pumpkin!! You seem sad :( did you have a hard day?", ["Yeah it was a reeeeally hard day....can you make it better", "My day wasn't so bad my little boo"], "secret_q0")
+        return
+
+    first = answers[0] if answers else ""
+    if stage == 1:
+        if first == "Yeah it was a reeeeally hard day....can you make it better":
+            ask("Fiery or calm?", ["Fiery", "Calm"], "secret_q1_red")
+        else:
+            ask("Sky or ocean?", ["Sky", "Ocean"], "secret_q1_blue")
+        return
+
+    second = answers[1] if len(answers) > 1 else ""
+    if stage == 2:
+        if first == "Red" and second == "Fiery":
+            ask("Sunrise or sunset?", ["Sunrise", "Sunset"], "secret_q2_rf")
+        elif first == "Red" and second == "Calm":
+            ask("Tea or coffee?", ["Tea", "Coffee"], "secret_q2_rc")
+        elif first == "Blue" and second == "Sky":
+            ask("Day or night sky?", ["Day", "Night"], "secret_q2_bs")
+        else:
+            ask("Waves or still water?", ["Waves", "Still"], "secret_q2_bo")
+        return
+
+    third = answers[2] if len(answers) > 2 else ""
+    if stage == 3:
+        if first == "Red" and second == "Fiery":
+            ask("Do you recharge solo or with friends?", ["Solo", "With friends"], "secret_q3_rf")
+        elif first == "Red" and second == "Calm":
+            ask("Book or movie night?", ["Book", "Movie"], "secret_q3_rc")
+        elif first == "Blue" and second == "Sky":
+            ask("Mountains or city lights?", ["Mountains", "City lights"], "secret_q3_bs")
+        else:
+            ask("Pool or beach?", ["Pool", "Beach"], "secret_q3_bo")
+        return
+
+    # Final summary after 4 steps
+    if stage >= 4:
+        st.success("Conversation complete!")
+        st.write("Your path:")
+        for idx, ans in enumerate(answers, 1):
+            st.markdown(f"- Step {idx}: {ans}")
+        if st.button("Restart secret bot"):
+            st.session_state.secret_bot_stage = 0
+            st.session_state.secret_bot_answers = []
+            st.experimental_rerun()
+
+
 # --- Streamlit UI ---
 st.set_page_config(page_title="Cognirae", page_icon="🧠", layout="wide")
 
@@ -728,6 +790,10 @@ if "selected_format" not in st.session_state:
     st.session_state.selected_format = "MCQ"
 if "dev_debug" not in st.session_state:
     st.session_state.dev_debug = False
+if "secret_bot_stage" not in st.session_state:
+    st.session_state.secret_bot_stage = 0
+if "secret_bot_answers" not in st.session_state:
+    st.session_state.secret_bot_answers = []
 
 topic_choices = [
     "Algebra - Quadratic functions",
@@ -999,7 +1065,7 @@ if generate or regenerate:
             st.session_state.safe_support = None
             st.session_state.questions_generated = False
             st.session_state.answers_revealed = False
-            st.success("Wow you found the secret message")
+            render_secret_bot()
             st.stop()
 
         intent, confidence, intent_reason = classify_intent(subject, details, fmt_label if isinstance(fmt_label, str) else None)
