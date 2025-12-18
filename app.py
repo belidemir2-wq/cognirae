@@ -992,6 +992,16 @@ if generate or regenerate:
     elif not attest:
         st.warning("Please confirm you are not pasting a live quiz or homework question. We must take these measures to prevent cheating on assignments.")
     else:
+        # Secret easter egg: bypass generation and show a message
+        if subject.strip() == "123" and details.strip() == "123":
+            st.session_state.data = None
+            st.session_state.questions = None
+            st.session_state.safe_support = None
+            st.session_state.questions_generated = False
+            st.session_state.answers_revealed = False
+            st.success("Wow you found the secret message")
+            st.stop()
+
         intent, confidence, intent_reason = classify_intent(subject, details, fmt_label if isinstance(fmt_label, str) else None)
 
         if intent == "ANSWER_SEEKING":
