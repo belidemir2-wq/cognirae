@@ -16,7 +16,7 @@ from reportlab.pdfgen import canvas
 client = OpenAI()
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 IS_DEV = os.getenv("COGNIRAE_DEV", "0") == "1"
-ANSWER_ALLOWED_FORMATS = {"MCQ", "SAQ"}
+ANSWER_ALLOWED_FORMATS = {"MCQ", "SAQ", "FRQ"}
 
 
 def difficulty_intensity(d: int) -> float:
@@ -582,8 +582,8 @@ def render_questions(data: Dict[str, Any], show_answers: bool, selected_format: 
         st.error("Format mismatch between selection and response; output suppressed.")
         return
 
-    def render_leq_frq_guidance(fmt: str) -> None:
-        st.info("Answer generation is disabled for LEQ/FRQ to save credits. Use this rubric-style checklist:")
+    def render_leq_guidance() -> None:
+        st.info("This feature is not available for LEQs.")
         st.markdown("**Thesis:** Takes a clear position; addresses the prompt directly.")
         st.markdown("**Evidence:** Multiple specific, relevant examples; tie each back to the claim.")
         st.markdown("**Reasoning:** Explain how evidence supports the claim; avoid mere lists.")
@@ -627,9 +627,9 @@ def render_questions(data: Dict[str, Any], show_answers: bool, selected_format: 
                 if "thesis_guidance" in q:
                     st.markdown(f"**Thesis guidance:** {q.get('thesis_guidance', '')}")
 
-    # For LEQ/FRQ, always surface rubric-style guidance instead of answers.
-    if canonical not in ANSWER_ALLOWED_FORMATS:
-        render_leq_frq_guidance(canonical)
+    # For LEQ, surface rubric-style guidance instead of answers.
+    if canonical == "LEQ":
+        render_leq_guidance()
 
 
 def render_safe_support(data: Dict[str, Any]) -> None:
@@ -1135,7 +1135,7 @@ if generate or regenerate:
 if reveal and st.session_state.data is not None and not st.session_state.answers_revealed:
     canonical = normalize_format(st.session_state.selected_format)
     if canonical not in ANSWER_ALLOWED_FORMATS:
-        st.info("Answer generation is disabled for LEQ/FRQ to save credits. Review the rubric guidance below.")
+        st.info("This feature is not available for LEQs.")
     else:
         # Reveal answers once per generation for allowed formats
         st.session_state.show_answers = True
